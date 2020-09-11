@@ -1,7 +1,8 @@
+---
 on:
   push:
     tags:
-    - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+      - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
 
 name: Upload Release Asset
 
@@ -10,11 +11,15 @@ jobs:
     name: Upload Release Asset
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout master
+        uses: actions/checkout@v2
+        with:
+          ref: master
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Build project # This would actually build your project, using zip for an example artifact
+      - name: Build project
         run: |
-          make tgz
+          make ci
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -26,12 +31,23 @@ jobs:
           draft: false
           prerelease: false
       - name: Upload Release Asset
-        id: upload-release-asset 
+        id: upload-release-asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
           asset_path: ./examples.tar.gz
           asset_name: examples.tar.gz
           asset_content_type: application/tar+gzip
+      - name: Commit updated krew yaml
+        id: git_commit
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "Github Action"
+          git stash -- plugins/examples.yaml
+          git checkout master
+          git stash pop
+          git add plugins/examples.yaml
+          git commit -m "update version references to: ${{ github.ref }}"
+          git push origin master
